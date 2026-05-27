@@ -4,39 +4,32 @@ set -e
 
 PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCODE_CONFIG_DIR="${HOME}/.config/opencode"
+CONFIG_FILE="${OPENCODE_CONFIG_DIR}/opencode.jsonc"
 
-echo "🔧 Installing mimo-monitor plugin for OpenCode..."
+echo "Installing mimo-monitor plugin for OpenCode..."
 echo "   Plugin source: ${PLUGIN_DIR}"
 
 # Create config directory if needed
 mkdir -p "${OPENCODE_CONFIG_DIR}"
 
-# Create or update opencode config
-CONFIG_FILE="${OPENCODE_CONFIG_DIR}/config.json"
-
+# Read existing config or create empty
 if [ -f "${CONFIG_FILE}" ]; then
-  # Backup existing config
   cp "${CONFIG_FILE}" "${CONFIG_FILE}.bak.$(date +%s)"
-  echo "   Backed up existing config to ${CONFIG_FILE}.bak.*"
+  echo "   Backed up existing config"
 fi
 
-# Write plugin reference into opencode config
-# OpenCode loads plugins from the config file
-cat > "${CONFIG_FILE}" << 'CONFIGEOF'
+# Write config with plugin reference
+# OpenCode loads plugins from the "plugin" array in config
+cat > "${CONFIG_FILE}" << CONFIGEOF
 {
-  "plugins": [
-    {
-      "name": "mimo-monitor",
-      "path": "PLUGIN_DIR_PLACEHOLDER/plugin.ts"
-    }
+  "\$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "${PLUGIN_DIR}/plugin.ts"
   ]
 }
 CONFIGEOF
 
-# Replace placeholder with actual path
-sed -i "s|PLUGIN_DIR_PLACEHOLDER|${PLUGIN_DIR}|g" "${CONFIG_FILE}"
-
-echo "✅ mimo-monitor plugin installed successfully!"
-echo "   Config written to: ${CONFIG_FILE}"
+echo "✅ Plugin config written to: ${CONFIG_FILE}"
 echo ""
 echo "⚠️  Make sure mimo_monitor server is running on port 9100 before using OpenCode."
+echo "   Start it with: cd ~/mimo && .venv/bin/python main.py"
