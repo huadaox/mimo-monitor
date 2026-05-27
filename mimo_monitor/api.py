@@ -12,6 +12,9 @@ from fastapi.responses import FileResponse
 from .models import HookEvent, ToolInfo, ToolStatus, StatusUpdate
 from .detectors import scan_tools
 
+import logging
+logger = logging.getLogger("mimo")
+
 STATIC_DIR = Path(__file__).parent / "static"
 
 # In-memory status log (last 100 updates)
@@ -81,9 +84,23 @@ async def _poll_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(_poll_loop())
+    # Start poll loop
+    poll_task = asyncio.create_task(_poll_loop())
+    # Start transmitters
+    from .transmitters import start_udp_broadcast, start_ble_service
+    tx_tasks = [
+        asyncio.create_task(start_udp_broadcast(port=9101), name="udp-broadcast"),
+        asyncio.create_task(start_ble_service(), name="ble-service"),
+    ]
+    logger.info("Transmitters started: UDP (9101), BLE")
     yield
-    task.cancel()
+    poll_task.cancel()
+    for t in tx_tasks:
+        t.cancel()
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Mimo Monitor", version="0.1.0", lifespan=lifespan)
