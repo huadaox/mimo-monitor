@@ -1,0 +1,9 @@
+{
+  "name": "mimo-monitor-opencode",
+  "version": "1.0.0",
+  "description": "OpenCode plugin for mimo_monitor - real-time AI agent status monitoring",
+  "main": "plugin.ts",
+  "keywords": ["opencode", "mimo", "monitor", "plugin"],
+  "author": "mimo_monitor",
+  "license": "MIT"
+}

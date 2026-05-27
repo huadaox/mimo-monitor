@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:9100/api/status)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:9100/api/status -H \"Content-Type: application/json\" -d '{\"tool\":\"esp32\",\"status\":\"idle\",\"detail\":\"connected\"}')",
+      "Bash(curl -s http://localhost:9100/api/log)",
+      "Bash(uv run *)",
+      "Bash(uv add *)",
+      "Bash(kill 12305)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:9100/)",
+      "Bash(python3 -c ' *)",
+      "Bash(kill 14161)",
+      "Read(//home/hua/.claude/**)",
+      "Read(//home/hua/.opencode/**)",
+      "Read(//home/hua/**)",
+      "Bash(snap info *)"
+    ]
+  }
+}
