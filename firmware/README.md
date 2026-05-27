@@ -1,171 +1,198 @@
-# Mimo Monitor - ESP32 Firmware
+# Mimo Monitor - ESP32 Robot Head Firmware
 
-ESP32 固件，用于将 AI Agent 运行状态通过 LED 可视化显示。
-提供两种连接方案：**WiFi UDP** 和 **BLE（蓝牙低功耗）**。
-
----
-
-## 状态 → LED 颜色映射
-
-| 状态 | LED 效果 | 颜色 |
-|------|----------|------|
-| `thinking` | 蓝色闪烁（500ms） | 🔵 Blue |
-| `running` | 绿色呼吸灯 | 🟢 Green |
-| `idle` | 黄色常亮 | 🟡 Yellow |
-| `waiting` | 橙色慢闪 | 🟠 Orange |
-| `error` | 红色快闪（200ms） | 🔴 Red |
-| `stopped` | 熄灭 | ⚫ Off |
+ESP32 固件，用于将 AI Agent 运行状态通过机器人头部动作和 LED 眼睛可视化显示。
 
 ---
 
-## 方案一：WiFi UDP（推荐）
+## 状态 → 动作映射
 
-### 原理
-Mimo Monitor 服务器每2秒在 UDP 端口 9101 广播状态 JSON，ESP32 监听并解析。
+| 状态 | 头部动作 | 眼睛颜色 | 描述 |
+|------|----------|----------|------|
+| `thinking` | 歪头（偏左） | 🔵 蓝色呼吸 | 疑惑：嗯？让我想想... |
+| `running` | 点头 | 🟢 绿色呼吸 | 干活中：好的好的 |
+| `idle` | 左右慢摇 | 🟡 黄色 | 发呆：在呢在呢 |
+| `waiting` | 快速摇头 | 🟠 橙色 | 催促：快回我呀 |
+| `error` | 疯狂摇头 | 🔴 红色快闪 | 惊恐：出大事了！ |
+| `stopped` | 低头 | ⚫ 熄灭 | 睡觉：zzZ... |
 
-### 接线
+---
+
+## 硬件清单
+
+| 部件 | 型号 | 数量 | 价格 |
+|------|------|------|------|
+| 开发板 | ESP32-S3-DevKitC-N16R8 | 1 | ~¥32 |
+| 舵机 | SG90 180度 | 2 | ~¥6 |
+| 杜邦线 | 母对母 10cm | 若干 | ~¥4 |
+| 头壳 | 3D打印 | 1 | ~¥15 |
+
+---
+
+## 接线
 
 ```
-ESP32 开发板        NeoPixel LED
-─────────────       ─────────────
-GPIO 48  ─────────→  DIN
-3.3V     ─────────→  VCC
-GND      ─────────→  GND
+ESP32-S3 开发板            舵机
+───────────────            ──────
+GPIO 13  ────(橙线)────→  Yaw舵机（左右）信号线
+GPIO 14  ────(橙线)────→  Pitch舵机（上下）信号线
+5V       ────(红线)────→  两个舵机的红线（并联）
+GND      ────(棕线)────→  两个舵机的棕线（并联）
+GPIO 48  ─────────────→  NeoPixel LED（板载，无需接线）
 ```
 
-> 📝 如果使用 ESP32-S3 开发板（如 ESP32-S3-DevKitC），GPIO 48 通常是板载 NeoPixel 的引脚，无需外接 LED。
-> 对于普通 LED：GPIO 2 → LED 正极 → 220Ω 电阻 → GND
+### 接线图
 
-### 编译烧录
+```
+         ┌─────────────────────┐
+         │   ESP32-S3-DevKitC  │
+         │                     │
+         │  GPIO 13 ─────────────────── Servo Yaw (橙)
+         │  GPIO 14 ─────────────────── Servo Pitch (橙)
+         │  5V ──────────────────────── Servo 红线 (并联)
+         │  GND ─────────────────────── Servo 棕线 (并联)
+         │  GPIO 48 ─ NeoPixel (板载)  │
+         │                     │
+         │  [USB-C]            │
+         └─────────────────────┘
+```
+
+---
+
+## 机械结构
+
+### 简易云台方案
+
+```
+        ┌──────────┐
+        │   头壳   │  ← 3D打印，安装在Pitch舵机臂上
+        │  ●    ●  │  ← LED眼睛
+        └────┬─────┘
+             │
+        ┌────┴─────┐
+        │ Pitch舵机 │  ← 控制上下点头
+        └────┬─────┘
+             │
+        ┌────┴─────┐
+        │ Yaw舵机  │  ← 控制左右转头
+        └────┬─────┘
+             │
+        ┌────┴─────┐
+        │   底座   │  ← 可以用亚克力/3D打印/木板
+        └──────────┘
+```
+
+### 舵机安装
+
+1. **Yaw舵机**：固定在底座上，输出轴朝上
+2. **Yaw转接件**：装在Yaw舵机输出轴上，水平伸出
+3. **Pitch舵机**：固定在Yaw转接件的另一端，输出轴朝前
+4. **Pitch转接件**：装在Pitch舵机输出轴上，垂直伸出
+5. **头壳**：固定在Pitch转接件上
+
+---
+
+## 编译烧录
 
 ```bash
-# 1. 安装 PlatformIO CLI (如果没有)
+# 1. 安装 PlatformIO CLI
 pip install platformio
 
 # 2. 进入固件目录
 cd ~/mimo/firmware/esp32_udp
 
-# 3. 修改 WiFi 配置（编辑 main.cpp 头部）
-#    const char *WIFI_SSID = "YOUR_WIFI_SSID";
-#    const char *WIFI_PASS = "YOUR_WIFI_PASSWORD";
+# 3. 修改 WiFi 配置
+#    编辑 main.cpp 头部:
+#    const char *WIFI_SSID = "你的WiFi名";
+#    const char *WIFI_PASS = "你的WiFi密码";
 
 # 4. 编译
 pio run
 
-# 5. 烧录（连接 USB）
+# 5. 烧录（USB连接开发板）
 pio run --target upload
 
-# 6. 查看串口调试输出
+# 6. 查看串口调试
 pio device monitor
 ```
 
-### 平台IO 配置
-- 板子：`esp32dev`（通用 ESP32）
-- 依赖库：ArduinoJson v7+, Adafruit NeoPixel
-- 端口：UDP 9101
-
 ---
 
-## 方案二：BLE（蓝牙低功耗）
+## 串口调试输出
 
-### 原理
-ESP32 扫描局域网 BLE 设备，找到 Mimo Monitor 的 GATT Service（UUID 0x1820），订阅 Status 特征（UUID 0x2B01）的 Notify。
+正常启动后会看到：
 
-### 接线
-与 UDP 方案完全相同（LED 接线不变）。
-
-### 编译烧录
-
-```bash
-# 1. 进入固件目录
-cd ~/mimo/firmware/esp32_ble
-
-# 2. 编译
-pio run
-
-# 3. 烧录
-pio run --target upload
-
-# 4. 查看串口调试输出
-pio device monitor
 ```
-
-### 平台IO 配置
-- 依赖库：ArduinoJson v7+, Adafruit NeoPixel, NimBLE-Arduino
-- BLE UUID：
-  - Service: `0x1820`
-  - Status Char: `0x2B01`（Read + Notify）
-
----
-
-## 选择哪种方案？
-
-| 特性 | WiFi UDP | BLE |
-|------|----------|-----|
-| 范围 | 同一局域网（~50m） | ~10-30m |
-| 延迟 | ~2秒（广播间隔） | 即时（Notify） |
-| 配置 | 需要 WiFi 密码 | 零配置（自动扫描） |
-| 功耗 | 较高 | 低 |
-| 多设备 | 天然支持（广播） | 每个设备独立连接 |
-| 穿墙 | 好 | 差 |
-
-**建议**：如果设备固定在桌面使用，选 WiFi UDP（稳定可靠）。
-如果需要便携或多个独立小灯，选 BLE。
+=== Mimo Monitor - Robot Head v2 ===
+[SERVO] Yaw on GPIO 13, Pitch on GPIO 14
+[WIFI] Connecting to MyWiFi......
+[WIFI] Connected! IP: 192.168.1.100
+[UDP] Listening on port 9101
+[STATE] THINKING | agent=claude-code tool=Read
+[STATE] RUNNING | agent=claude-code tool=Bash
+[STATE] IDLE | agent=claude-code tool=
+```
 
 ---
 
 ## 自定义
 
-### 更换 LED 引脚
-编辑 `main.cpp` 中的：
+### 调整舵机角度范围
+
+编辑 `main.cpp` 中的常量：
+
 ```cpp
-const uint8_t LED_PIN = 48;       // 改为你的引脚
-const bool USE_NEOPIXEL = true;   // false = 普通LED
+// Yaw（左右）角度范围
+const int YAW_MIN = 0;
+const int YAW_MAX = 180;
+const int YAW_CENTER = 90;
+
+// Pitch（上下）角度范围
+const int PITCH_MIN = 45;
+const int PITCH_MAX = 135;
+const int PITCH_CENTER = 90;
 ```
 
-### 使用普通 LED（非 NeoPixel）
+### 调整动作幅度
+
 ```cpp
-const bool USE_NEOPIXEL = false;
-const uint8_t PLAIN_LED_PIN = 2;  // GPIO 2（大多数板载LED）
+// 发呆时左右摇摆幅度
+int swing = 25;  // 增大 = 摇得更厉害
+
+// 干活时点头幅度
+int nod = 15;
 ```
 
-### 多个 NeoPixel
+### 调整运动平滑度
+
 ```cpp
-const uint8_t NUM_PIXELS = 8;     // LED 灯带数量
+const int SERVO_SPEED = 15;  // 每帧最大移动角度
+// 减小 → 动作更慢更平滑
+// 增大 → 动作更快更生硬
 ```
 
 ---
 
 ## 故障排查
 
-1. **WiFi 连接失败**：检查 SSID/密码，确认 ESP32 在路由器信号范围内
-2. **收不到 UDP 包**：确认 Mimo Monitor 服务器已启动 UDP 广播功能
-3. **BLE 扫描不到**：确认服务器端 BLE GATT 服务已启用，距离不超过 10m
-4. **LED 不亮**：检查接线，确认 GPIO 引脚正确
-5. **串口无输出**：确认 `monitor_speed = 115200`
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| 舵机抖动 | 供电不足 | 用外部5V电源给舵机供电 |
+| 舵机不转 | 接线错误 | 检查信号线是否接对GPIO |
+| 头往反方向转 | 舵机安装方向反了 | 修改 `YAW_MIN/MAX` 或物理翻转舵机 |
+| 收不到UDP包 | WiFi连接失败 | 检查SSID/密码 |
+| LED不亮 | GPIO引脚错误 | 确认是GPIO 48（S3板载） |
 
 ---
 
-## 协议格式
+## 外部供电方案（可选）
 
-服务器发送的 JSON 格式：
+如果舵机抖动严重，说明USB供电不足。用外部5V电源：
 
-```json
-{
-  "v": 1,
-  "ts": 1716800000,
-  "agents": [
-    {
-      "id": "claude-1",
-      "type": "claude-code",
-      "status": "thinking",
-      "tool": "Read",
-      "task": "分析 auth.py",
-      "tokens": 12500,
-      "uptime": 3600
-    }
-  ]
-}
+```
+外部5V电源 ──┬── 5V ──→ 舵机红线
+             └── GND ─→ 舵机棕线 ──┬── GND ──→ ESP32 GND
+                                   │
+ESP32 GPIO 13/14 ──(橙线)──→ 舵机信号线
 ```
 
-ESP32 优先显示最高优先级状态（error > thinking > running > waiting > idle > stopped）。
+> ⚠️ 外部电源和ESP32必须共地（GND连在一起）
