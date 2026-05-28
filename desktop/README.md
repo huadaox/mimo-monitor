@@ -13,39 +13,88 @@
 | 🔴 红色 | error | 出错 |
 | ⚫ 灰色 | stopped | 离线 |
 
-## 安装
+---
 
-```bash
-cd ~/mimo/desktop
-pip install -r requirements.txt
+## Windows 使用（推荐）
+
+Agent 跑在 WSL，托盘跑在 Windows，通过 API 连接。
+
+### 方法 1：直接运行
+
+```powershell
+# 安装依赖
+pip install pystray Pillow requests
+
+# 运行
+python tray_windows.py
 ```
 
-## 运行
+### 方法 2：打包成 exe
+
+```powershell
+# 一键打包
+build.bat
+
+# 生成 dist/MimoMonitor.exe，双击运行
+```
+
+### 网络配置
+
+默认连接 `http://localhost:9100`，如果连不上，设置环境变量：
+
+```powershell
+# 用 WSL IP（在 WSL 中运行 hostname -I 获取）
+set MIMO_API=http://172.28.86.168:9100/api/status
+set DASHBOARD_URL=http://172.28.86.168:9100
+
+python tray_windows.py
+```
+
+---
+
+## WSL / Linux / macOS 使用
 
 ```bash
-# 先启动 mimo monitor 服务器
-cd ~/mimo && python main.py &
+# 安装依赖
+pip install pystray Pillow requests
 
-# 再启动托盘
-python desktop/tray.py
+# 运行（需要 GUI 环境）
+python tray.py
 ```
+
+---
 
 ## 功能
 
 - ✅ 托盘图标颜色随状态变化
-- ✅ 鼠标悬停显示详细状态
-- ✅ 右键菜单：打开 Dashboard / 刷新 / 退出
+- ✅ 鼠标悬停显示详细状态信息
+- ✅ 左键双击打开 Dashboard
+- ✅ 右键菜单：刷新 / 退出
 - ✅ 每 2 秒自动轮询
 - ✅ 服务器离线时显示灰色
+- ✅ 支持自定义 API 地址
+
+---
 
 ## 开机自启
 
 ### Windows
+
 1. 按 `Win+R`，输入 `shell:startup`
-2. 创建快捷方式：`pythonw C:\path\to\mimo\desktop\tray.py`
+2. 把 `MimoMonitor.exe` 快捷方式放进去
 
-### macOS
-创建 `~/Library/LaunchAgents/com.mimo.tray.plist`
+或创建 VBS 脚本静默启动：
 
-### Linux
-创建 `~/.config/systemd/user/mimo-tray.service`
+```vbs
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run "C:\path\to\MimoMonitor.exe", 0, False
+```
+
+---
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `MIMO_API` | `http://localhost:9100/api/status` | API 地址 |
+| `DASHBOARD_URL` | `http://localhost:9100` | Dashboard 地址 |
