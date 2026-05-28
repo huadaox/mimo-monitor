@@ -25,7 +25,7 @@ static ssize_t (*original_write)(int fd, const void *buf, size_t count) = NULL;
 
 // mimo monitor 地址
 static const char *MIMO_HOST = "127.0.0.1";
-static const int MIMO_PORT = 9100;
+static int MIMO_PORT = 9100;
 
 // 状态关键词映射
 typedef struct {
