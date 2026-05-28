@@ -62,26 +62,46 @@ _ADVERTISEMENT_PATH = _BASE_PATH + "/advertisements/advertisement0"
 # Helpers: build status payload
 # ---------------------------------------------------------------------------
 def _build_status_json() -> bytes:
-    """Import scan_tools (lazy to avoid circular import) and return JSON bytes."""
+    """Build agent status JSON from watcher + process detection."""
+    from ..watcher import get_watcher
     from ..detectors import scan_tools
 
-    tools = scan_tools()
-    payload = json.dumps({
+    watcher = get_watcher()
+    file_states = watcher.get_all_states()
+    now = time.time()
+
+    known_tools = {"claude-code", "opencode", "codex", "cursor"}
+    proc_tools = scan_tools()
+
+    agents = []
+    for tool_name in known_tools:
+        file_data = file_states.get(tool_name)
+        proc_info = next((t for t in proc_tools if t.name == tool_name), None)
+
+        if file_data and (now - file_data.get("ts", 0) < 30):
+            agents.append({
+                "id": tool_name,
+                "status": file_data.get("state", "idle"),
+                "detail": file_data.get("detail", ""),
+                "tool": tool_name,
+                "cpu": proc_info.cpu_percent if proc_info else 0,
+                "mem_mb": proc_info.memory_mb if proc_info else 0,
+            })
+        elif proc_info:
+            agents.append({
+                "id": tool_name,
+                "status": "idle",
+                "detail": "Process detected",
+                "tool": tool_name,
+                "cpu": proc_info.cpu_percent,
+                "mem_mb": proc_info.memory_mb,
+            })
+
+    return json.dumps({
         "v": 1,
-        "ts": time.time(),
-        "agents": [
-            {
-                "id": t.name,
-                "status": t.status.value,
-                "detail": t.detail,
-                "tool": t.name,
-                "cpu": t.cpu_percent,
-                "mem_mb": t.memory_mb,
-            }
-            for t in tools
-        ],
+        "ts": now,
+        "agents": agents,
     }).encode("utf-8")
-    return payload
 
 
 # ---------------------------------------------------------------------------

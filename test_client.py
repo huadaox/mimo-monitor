@@ -20,16 +20,18 @@ def test_rest():
     tools = r.json()
     print(f"GET /api/status -> {len(tools)} tools:")
     for t in tools:
-        icon = {"running": "🟢", "idle": "🟡", "stopped": "⚫", "error": "🔴", "thinking": "🔵", "waiting": "🟠"}.get(t["status"], "❓")
+        state = t.get("state", t.get("status", "unknown"))
+        icon = {"working": "🟢", "idle": "🟡", "stopped": "⚫", "error": "🔴", "waiting": "🟠"}.get(state, "❓")
         pid = t.get("pid") or "-"
-        print(f"  {icon} {t['name']:12s}  status={t['status']:8s}  pid={pid:>6}  mem={t['memory_mb']:.0f}MB")
+        print(f"  {icon} {t['name']:12s}  state={state:8s}  pid={str(pid):>6}  mem={t.get('memory_mb', 0):.0f}MB")
 
     r = httpx.get(f"{BASE}/api/status/claude-code")
-    print(f"GET /api/status/claude-code -> {r.json()['status']}")
+    data = r.json()
+    print(f"GET /api/status/claude-code -> {data.get('state', data.get('status'))}")
 
     r = httpx.post(f"{BASE}/api/status", json={
         "tool": "esp32-test",
-        "status": "running",
+        "state": "working",
         "detail": "LED breathing mode",
     })
     print(f"POST /api/status -> {r.json()['ok']}")
@@ -47,22 +49,22 @@ async def test_ws():
         return
 
     async with connect("ws://localhost:9100/ws") as ws:
-        # Should receive init message
         msg = json.loads(await ws.recv())
         print(f"WS init: {len(msg['tools'])} tools")
         for t in msg["tools"]:
-            print(f"  {t['name']:12s} -> {t['status']}")
+            state = t.get("state", t.get("status", "unknown"))
+            print(f"  {t['name']:12s} -> {state}")
 
-        # Ping test
         await ws.send("ping")
         msg = json.loads(await ws.recv())
         print(f"WS ping -> {msg['event']}")
 
-        print("WS: waiting for status changes (Ctrl+C to stop)...")
+        print("WS: waiting for state changes (Ctrl+C to stop)...")
         try:
             while True:
                 msg = json.loads(await ws.recv())
-                print(f"  [{time.strftime('%H:%M:%S')}] {msg['event']}: {msg.get('tool', '')} -> {msg.get('status', '')}")
+                state = msg.get("state", msg.get("status", ""))
+                print(f"  [{time.strftime('%H:%M:%S')}] {msg['event']}: {msg.get('tool', '')} -> {state}")
         except KeyboardInterrupt:
             print("WS: stopped")
 
