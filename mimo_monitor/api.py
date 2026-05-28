@@ -177,8 +177,8 @@ async def post_hook(event: HookEvent):
 
     这是状态的主要来源！
     """
-    # 根据事件类型确定状态
-    status = HOOK_STATUS_MAP.get(event.event, event.status)
+    # 根据事件类型确定状态（优先用映射表，其次用手动指定，最后默认 running）
+    status = HOOK_STATUS_MAP.get(event.event) or event.status or ToolStatus.RUNNING
 
     # 更新 hook 状态
     _hook_states[event.tool] = ToolInfo(

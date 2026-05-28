@@ -49,7 +49,7 @@ class HookEvent(BaseModel):
     """Hook 事件"""
     tool: str                              # 工具名称
     event: str                             # 事件类型 (PreToolUse, PostToolUse, Stop, etc.)
-    status: ToolStatus                     # 对应的状态
+    status: ToolStatus | None = None       # 可选：手动指定状态（通常由 event 自动推导）
     detail: str = ""                       # 事件详情
     session_id: str = ""                   # 会话 ID
     timestamp: float = Field(default_factory=time.time)
