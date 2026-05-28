@@ -1,0 +1,42 @@
+#!/bin/bash
+# mimo - 无感启动 AI 编程工具，自动监控 TUI 状态
+#
+# 使用方法：
+#   mimo claude "你的问题"
+#   mimo opencode
+#   mimo codex
+#
+# 原理：用 LD_PRELOAD 劫持 write()，监控 stdout 输出
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HOOK_SO="$SCRIPT_DIR/mimo_hook.so"
+MIMO_API="${MIMO_API:-http://localhost:9100/api/hook}"
+
+# 检查 hook.so 是否存在
+if [[ ! -f "$HOOK_SO" ]]; then
+    echo "[mimo] 编译 hook 库..."
+    gcc -shared -fPIC -o "$HOOK_SO" "$SCRIPT_DIR/mimo_hook.c" -ldl 2>/dev/null || {
+        echo "[mimo] 编译失败，使用普通模式启动"
+        exec "$@"
+    }
+fi
+
+# 检查 mimo monitor 是否运行
+if ! curl -sf "$MIMO_API" >/dev/null 2>&1; then
+    echo "[mimo] 警告: mimo monitor 未运行，状态监控已禁用"
+    exec "$@"
+fi
+
+# 设置环境变量
+export LD_PRELOAD="$HOOK_SO"
+export MIMO_HOST="${MIMO_API#http://}"
+export MIMO_HOST="${MIMO_HOST%%:*}"
+export MIMO_PORT="${MIMO_API##*:}"
+export MIMO_PORT="${MIMO_PORT%%/*}"
+
+echo "[mimo] 状态监控已启用 (hook: $HOOK_SO)"
+
+# 启动目标程序
+exec "$@"
