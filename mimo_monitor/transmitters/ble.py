@@ -36,6 +36,14 @@ except ImportError:
         "Install with: pip install bleak"
     )
 
+# 状态映射: mimo 内部状态 → ESP32 固件期望的状态
+_STATE_MAP = {
+    "working": "running",
+    "waiting": "waiting",
+    "idle": "idle",
+    "stopped": "stopped",
+}
+
 # GATT UUIDs (assigned numbers from Bluetooth SIG)
 _SERVICE_UUID = "00001820-0000-1000-8000-00805f9b34fb"
 _STATUS_CHAR_UUID = "00002b01-0000-1000-8000-00805f9b34fb"
@@ -79,9 +87,10 @@ def _build_status_json() -> bytes:
         proc_info = next((t for t in proc_tools if t.name == tool_name), None)
 
         if file_data and (now - file_data.get("ts", 0) < 30):
+            raw_state = file_data.get("state", "idle")
             agents.append({
                 "id": tool_name,
-                "status": file_data.get("state", "idle"),
+                "status": _STATE_MAP.get(raw_state, raw_state),
                 "detail": file_data.get("detail", ""),
                 "tool": tool_name,
                 "cpu": proc_info.cpu_percent if proc_info else 0,

@@ -24,6 +24,14 @@ logger = logging.getLogger("mimo.udp")
 _VERSION = 1
 _registered_devices: set[tuple[str, int]] = set()
 
+# 状态映射: mimo 内部状态 → ESP32 固件期望的状态
+_STATE_MAP = {
+    "working": "running",
+    "waiting": "waiting",
+    "idle": "idle",
+    "stopped": "stopped",
+}
+
 
 class _UDPBroadcastProtocol(asyncio.DatagramProtocol):
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -87,9 +95,10 @@ async def start_udp_broadcast(port: int = 9101) -> None:
                     )
 
                     if file_data and (now - file_data.get("ts", 0) < 30):
+                        raw_state = file_data.get("state", "idle")
                         agents.append({
                             "id": tool_name,
-                            "status": file_data.get("state", "idle"),
+                            "status": _STATE_MAP.get(raw_state, raw_state),
                             "detail": file_data.get("detail", ""),
                             "tool": tool_name,
                             "cpu": proc_info.cpu_percent if proc_info else 0,
