@@ -24,6 +24,7 @@ from .models import AgentInfo, AgentState
 from .protocol import STATE_DIR, STALE_TIMEOUT, report
 from .watcher import get_watcher
 from .detectors import scan_tools
+from .codex_monitor import start_codex_monitor, stop_codex_monitor, is_connected as codex_server_connected
 
 logger = logging.getLogger("mimo")
 
@@ -95,9 +96,12 @@ def get_merged_status() -> list[AgentInfo]:
                 info.uptime_seconds = proc_info.uptime_seconds
             result.append(info)
         elif proc_info:
-            # 回退到进程检测
-            proc_info.source = "process"
-            result.append(proc_info)
+            # codex: app-server 已连接时不回退到进程检测
+            if tool_name == "codex" and codex_server_connected():
+                result.append(AgentInfo(name=tool_name, state=AgentState.STOPPED))
+            else:
+                proc_info.source = "process"
+                result.append(proc_info)
         else:
             result.append(AgentInfo(name=tool_name, state=AgentState.STOPPED))
 
@@ -144,12 +148,18 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(start_udp_broadcast(port=9101), name="udp-broadcast"),
         asyncio.create_task(start_ble_service(), name="ble-service"),
     ]
+    # 启动 codex app-server 监控
+    codex_task = asyncio.create_task(start_codex_monitor(), name="codex-monitor")
+
     logger.info("Mimo Monitor started (state dir: %s)", STATE_DIR)
     yield
 
     watcher_task.cancel()
+    codex_task.cancel()
     for t in tx_tasks:
         t.cancel()
+    await stop_codex_monitor()
+    for t in [watcher_task, codex_task] + tx_tasks:
         try:
             await t
         except asyncio.CancelledError:
