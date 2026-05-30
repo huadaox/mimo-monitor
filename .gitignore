@@ -23,4 +23,3 @@ Thumbs.db
 # PlatformIO
 firmware/**/.pio/
 firmware/**/lib/
-firmware/**/src/
